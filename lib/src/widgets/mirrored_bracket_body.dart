@@ -10,13 +10,15 @@ import 'bracket_round_column.dart';
 
 /// Renders a two-sided bracket: both halves progress toward a center final.
 ///
-/// Unlike the linear body this does not scroll round by round — the whole
-/// bracket is scaled down to fit the viewport so its symmetry is visible at a
-/// glance, then optionally panned and zoomed with [InteractiveViewer].
+/// Unlike the linear body this does not scroll round by round — the bracket
+/// is laid out at its natural size inside an [InteractiveViewer] that starts
+/// zoomed out to fit the viewport, so its symmetry is visible at a glance.
+/// Zooming in shows the cards at full resolution; zooming out is capped at
+/// that fitted overview.
 ///
 /// Internal to the package; use `TournamentBracket(variant:
 /// BracketVariant.mirrored)`.
-class MirroredBracketBody extends StatelessWidget {
+class MirroredBracketBody extends StatefulWidget {
   /// Creates a [MirroredBracketBody].
   const MirroredBracketBody({
     super.key,
@@ -66,7 +68,7 @@ class MirroredBracketBody extends StatelessWidget {
   /// Whether pinch-to-zoom is enabled.
   final bool enableScale;
 
-  /// Minimum zoom.
+  /// Minimum zoom. Unused: zoom-out is capped at the fitted overview.
   final double minScale;
 
   /// Maximum zoom.
@@ -75,18 +77,35 @@ class MirroredBracketBody extends StatelessWidget {
   /// Space reserved around the fitted bracket.
   final EdgeInsets padding;
 
+  @override
+  State<MirroredBracketBody> createState() => _MirroredBracketBodyState();
+}
+
+class _MirroredBracketBodyState extends State<MirroredBracketBody> {
+  final _transformationController = TransformationController();
+
+  /// Viewport and content sizes the current transform was fitted for.
+  Size? _fittedViewport;
+  Size? _fittedContent;
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
   double _separatorFor(int roundIndex) => calculateSeparatorHeight(
         roundIndex: roundIndex,
-        itemsMarginVertical: itemsMarginVertical,
-        cardHeight: cardHeight,
+        itemsMarginVertical: widget.itemsMarginVertical,
+        cardHeight: widget.cardHeight,
       );
 
   Widget _column(BracketRound round, int roundIndex) => BracketRoundColumn(
         matches: round.matches,
         separatorHeight: _separatorFor(roundIndex),
-        cardHeight: cardHeight,
-        cardWidth: cardWidth,
-        matchBuilder: matchBuilder,
+        cardHeight: widget.cardHeight,
+        cardWidth: widget.cardWidth,
+        matchBuilder: widget.matchBuilder,
       );
 
   Widget _elbow({
@@ -97,10 +116,10 @@ class MirroredBracketBody extends StatelessWidget {
       BracketConnector(
         sourceMatchCount: sourceMatchCount,
         separatorHeight: _separatorFor(roundIndex),
-        cardHeight: cardHeight,
-        lineColor: lineColor,
-        connectorWidth: connectorWidth,
-        lineWidth: lineWidth,
+        cardHeight: widget.cardHeight,
+        lineColor: widget.lineColor,
+        connectorWidth: widget.connectorWidth,
+        lineWidth: widget.lineWidth,
         mirrored: mirrored,
       );
 
@@ -108,10 +127,10 @@ class MirroredBracketBody extends StatelessWidget {
       BracketStraightConnector(
         matchCount: matchCount,
         separatorHeight: _separatorFor(roundIndex),
-        cardHeight: cardHeight,
-        lineColor: lineColor,
-        connectorWidth: connectorWidth,
-        lineWidth: lineWidth,
+        cardHeight: widget.cardHeight,
+        lineColor: widget.lineColor,
+        connectorWidth: widget.connectorWidth,
+        lineWidth: widget.lineWidth,
       );
 
   /// Builds the columns and connectors, left edge → center → right edge.
@@ -140,7 +159,7 @@ class MirroredBracketBody extends StatelessWidget {
           roundIndex: inner.roundIndex,
         ));
       }
-      children.add(_column(center, rounds.length - 1));
+      children.add(_column(center, widget.rounds.length - 1));
       if (layout.right.isNotEmpty) {
         final inner = layout.right.last;
         children.add(_spur(
@@ -171,67 +190,99 @@ class MirroredBracketBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final layout = splitBracketForMirror(rounds);
+    final layout = splitBracketForMirror(widget.rounds);
     if (layout.columnCount == 0) return const SizedBox.shrink();
 
     final bracketHeight = calculateBracketHeight(
       firstRoundMatchCount: layout.tallestColumnMatchCount,
-      cardHeight: cardHeight,
-      itemsMarginVertical: itemsMarginVertical,
+      cardHeight: widget.cardHeight,
+      itemsMarginVertical: widget.itemsMarginVertical,
     );
 
     final children = _buildRow(layout);
     final connectorCount = children.length - layout.columnCount;
-    final bracketWidth =
-        (layout.columnCount * cardWidth) + (connectorCount * connectorWidth);
+    final bracketWidth = (layout.columnCount * widget.cardWidth) +
+        (connectorCount * widget.connectorWidth);
+    final contentSize = Size(
+      bracketWidth + widget.padding.horizontal,
+      bracketHeight + widget.padding.vertical,
+    );
 
-    final bracket = SizedBox(
-      width: bracketWidth,
-      height: bracketHeight,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: children,
+    final bracket = Padding(
+      padding: widget.padding,
+      child: SizedBox(
+        width: bracketWidth,
+        height: bracketHeight,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: children,
+        ),
       ),
     );
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final availableWidth =
-            (constraints.maxWidth - padding.horizontal).clamp(1.0, 1e6);
+        final viewport = Size(
+          constraints.maxWidth,
+          constraints.hasBoundedHeight
+              ? constraints.maxHeight
+              : contentSize.height,
+        );
 
-        // Fit by width, and by height too when the parent bounds us. Never
-        // scale above 1.0 — a small bracket stays at its natural card size.
-        var fit = availableWidth / bracketWidth;
-        if (constraints.hasBoundedHeight) {
-          final availableHeight =
-              (constraints.maxHeight - padding.vertical).clamp(1.0, 1e6);
-          fit = math.min(fit, availableHeight / bracketHeight);
-        }
-        fit = math.min(fit, 1.0);
-
-        final fitted = Padding(
-          padding: padding,
-          child: Center(
-            child: SizedBox(
-              width: bracketWidth * fit,
-              height: bracketHeight * fit,
-              child: FittedBox(
-                fit: BoxFit.contain,
-                child: bracket,
-              ),
-            ),
+        // Fit the whole bracket into the viewport, never above natural size.
+        final fit = math.min(
+          1.0,
+          math.min(
+            viewport.width / contentSize.width,
+            viewport.height / contentSize.height,
           ),
         );
 
-        if (!enablePan && !enableScale) return fitted;
+        if (!widget.enablePan && !widget.enableScale) {
+          return Center(
+            child: SizedBox(
+              width: contentSize.width * fit,
+              height: contentSize.height * fit,
+              child: FittedBox(child: bracket),
+            ),
+          );
+        }
+
+        // Grow the child so that, at the fitted scale, it covers the whole
+        // viewport. The bracket sits centered inside it, and panning is
+        // clamped to the child, so the overview can't drift off-center.
+        final childSize = Size(
+          math.max(contentSize.width, viewport.width / fit),
+          math.max(contentSize.height, viewport.height / fit),
+        );
+
+        if (viewport != _fittedViewport || contentSize != _fittedContent) {
+          _fittedViewport = viewport;
+          _fittedContent = contentSize;
+          // Mutated in place: notifying listeners here would mark the
+          // InteractiveViewer dirty mid-build, and it rebuilds anyway.
+          _transformationController.value.setFrom(
+            Matrix4.diagonal3Values(fit, fit, 1)
+              ..setTranslationRaw(
+                (viewport.width - childSize.width * fit) / 2,
+                (viewport.height - childSize.height * fit) / 2,
+                0,
+              ),
+          );
+        }
 
         return InteractiveViewer(
-          panEnabled: enablePan,
-          scaleEnabled: enableScale,
-          minScale: minScale,
-          maxScale: maxScale,
-          child: fitted,
+          transformationController: _transformationController,
+          constrained: false,
+          panEnabled: widget.enablePan,
+          scaleEnabled: widget.enableScale,
+          minScale: fit,
+          maxScale: math.max(widget.maxScale, fit),
+          child: SizedBox.fromSize(
+            size: childSize,
+            child: Center(child: bracket),
+          ),
         );
       },
     );

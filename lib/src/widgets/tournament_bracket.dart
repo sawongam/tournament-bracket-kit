@@ -114,6 +114,9 @@ class TournamentBracket extends StatefulWidget {
   final bool? enableScale;
 
   /// Minimum zoom when [enableScale] is true.
+  ///
+  /// Ignored by [BracketVariant.mirrored], which can't be zoomed out past the
+  /// scale that fits the whole bracket in the viewport.
   final double minScale;
 
   /// Maximum zoom when [enableScale] is true.
@@ -127,7 +130,7 @@ class TournamentBracket extends StatefulWidget {
 }
 
 class _TournamentBracketState extends State<TournamentBracket>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late ScrollController _scrollController;
   TabController? _tabController;
 
@@ -153,15 +156,20 @@ class _TournamentBracketState extends State<TournamentBracket>
   void didUpdateWidget(covariant TournamentBracket oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.rounds.length != widget.rounds.length ||
-        oldWidget.variant != widget.variant) {
-      _disposeControllers();
-      _initControllers();
+        oldWidget.variant != widget.variant ||
+        oldWidget.showRoundTabs != widget.showRoundTabs) {
+      _disposeTabController();
+      _initTabController();
     }
   }
 
   void _initControllers() {
     _scrollController = ScrollController()..addListener(_onScroll);
+    _initTabController();
+  }
 
+  void _initTabController() {
+    _tabDrivenScroll = false;
     if (widget.showRoundTabs && widget.rounds.isNotEmpty && !_isMirrored) {
       _tabController = TabController(length: widget.rounds.length, vsync: this)
         ..addListener(_onTabChanged);
@@ -173,6 +181,10 @@ class _TournamentBracketState extends State<TournamentBracket>
   void _disposeControllers() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _disposeTabController();
+  }
+
+  void _disposeTabController() {
     _tabController?.removeListener(_onTabChanged);
     _tabController?.dispose();
     _tabController = null;
