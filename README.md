@@ -9,12 +9,7 @@ A customizable Flutter widget for **single-elimination tournament brackets** wit
 
 ![Tournament bracket kit demo](demo/tournament-bracket-kit-demo.gif)
 
-<details>
-<summary>Mirrored variant preview</summary>
-
 ![Mirrored bracket variant](demo/tournament-mirror-variant.png)
-
-</details>
 
 ## Features
 
