@@ -41,8 +41,7 @@ class MirroredBracketBody extends StatefulWidget {
   final List<BracketRound> rounds;
 
   /// Builds a single match card.
-  final Widget Function(BuildContext context, BracketMatch match)
-      matchBuilder;
+  final Widget Function(BuildContext context, BracketMatch match) matchBuilder;
 
   /// Height of each match card slot.
   final double cardHeight;

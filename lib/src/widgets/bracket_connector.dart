@@ -111,7 +111,6 @@ class BracketConnector extends StatelessWidget {
   }
 }
 
-
 /// Straight horizontal connectors, one per match in the adjacent column.
 ///
 /// Used on either side of the center column in a [BracketVariant.mirrored]

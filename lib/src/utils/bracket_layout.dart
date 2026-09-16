@@ -14,8 +14,8 @@ double calculateSeparatorHeight({
   var separatorHeight = 0.0;
   for (var i = 0; i <= roundIndex; i++) {
     final factor = math.pow(2, i).toDouble();
-    separatorHeight =
-        (cardHeight * (factor - 1)) + (itemsMarginVertical * ((factor - 1) + 1));
+    separatorHeight = (cardHeight * (factor - 1)) +
+        (itemsMarginVertical * ((factor - 1) + 1));
   }
   return separatorHeight;
 }
