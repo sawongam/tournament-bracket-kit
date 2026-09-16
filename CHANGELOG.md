@@ -1,3 +1,8 @@
+## 1.0.1
+
+* Documentation cleanup in `README.md` and `CHANGELOG.md`.
+* Removed unused development files; no functional changes.
+
 ## 1.0.0
 
 * Added `BracketVariant.mirrored` - a two-sided bracket where the left half

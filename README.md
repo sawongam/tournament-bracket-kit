@@ -1,6 +1,6 @@
 # Tournament Bracket Kit
 
-![Pub](https://img.shields.io/badge/Pub-1.0.0-blue.svg)
+![Pub](https://img.shields.io/badge/Pub-1.0.1-blue.svg)
 ![Publisher](https://img.shields.io/badge/Publisher-sawongam-blue.svg)
 
 A customizable Flutter widget for **single-elimination tournament brackets** with pan/zoom, round tabs, and fully customizable match cards.
