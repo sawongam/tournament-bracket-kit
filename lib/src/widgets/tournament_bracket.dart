@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../models/bracket_match.dart';
 import '../models/bracket_round.dart';
+import '../models/bracket_variant.dart';
 import '../utils/bracket_layout.dart';
 import 'bracket_connector.dart';
 import 'bracket_round_column.dart';
 import 'bracket_round_tabs.dart';
 import 'default_bracket_match_card.dart';
+import 'mirrored_bracket_body.dart';
 
 /// Builder for a single match card inside [TournamentBracket].
 typedef BracketMatchBuilder = Widget Function(
@@ -17,11 +19,14 @@ typedef BracketMatchBuilder = Widget Function(
 /// Callback when a match card is tapped (used by the default card).
 typedef BracketMatchTapCallback = void Function(BracketMatch match);
 
-/// A snapping single-elimination tournament bracket.
+/// A single-elimination tournament bracket.
 ///
 /// Pass ordered [rounds] (first round → final). Customize look via
-/// [matchBuilder], sizing, and line colors. Round tabs auto-follow scroll
-/// when [showRoundTabs] is true — tapping a tab snaps the bracket to that round.
+/// [matchBuilder], sizing, and line colors.
+///
+/// With the default [BracketVariant.linear] the bracket runs left-to-right and
+/// snaps round by round, and round tabs auto-follow scroll when
+/// [showRoundTabs] is true — tapping a tab snaps the bracket to that round.
 ///
 /// ```dart
 /// TournamentBracket(
@@ -29,11 +34,24 @@ typedef BracketMatchTapCallback = void Function(BracketMatch match);
 ///   onMatchTap: (match) => debugPrint(match.id),
 /// )
 /// ```
+///
+/// With [BracketVariant.mirrored] the first half of each round progresses
+/// left-to-right, the second half right-to-left, and the final sits in the
+/// center. That layout is scaled to fit the viewport rather than scrolled, so
+/// [showRoundTabs] does not apply and pinch-to-zoom is on by default.
+///
+/// ```dart
+/// TournamentBracket(
+///   rounds: dummyBracketRounds(),
+///   variant: BracketVariant.mirrored,
+/// )
+/// ```
 class TournamentBracket extends StatefulWidget {
   /// Creates a [TournamentBracket].
   const TournamentBracket({
     super.key,
     required this.rounds,
+    this.variant = BracketVariant.linear,
     this.matchBuilder,
     this.onMatchTap,
     this.cardHeight = 100,
@@ -44,7 +62,7 @@ class TournamentBracket extends StatefulWidget {
     this.lineWidth = 1,
     this.showRoundTabs = true,
     this.enablePan = true,
-    this.enableScale = false,
+    this.enableScale,
     this.minScale = 0.4,
     this.maxScale = 2.5,
     this.transformationController,
@@ -52,6 +70,9 @@ class TournamentBracket extends StatefulWidget {
 
   /// Bracket rounds from earliest round to final.
   final List<BracketRound> rounds;
+
+  /// Layout to render. Defaults to [BracketVariant.linear].
+  final BracketVariant variant;
 
   /// Custom match card. Defaults to [DefaultBracketMatchCard].
   final BracketMatchBuilder? matchBuilder;
@@ -78,17 +99,24 @@ class TournamentBracket extends StatefulWidget {
   /// Bracket line stroke width.
   final double lineWidth;
 
-  /// Whether to show the round tab bar above the bracket.
+  /// Whether to show the round tab bar above the bracket. Ignored by
+  /// [BracketVariant.mirrored], where a round spans two columns.
   final bool showRoundTabs;
 
-  /// Whether the bracket can be scrolled horizontally (round-by-round).
+  /// Whether the bracket can be scrolled horizontally (round-by-round) in
+  /// [BracketVariant.linear], or dragged around in [BracketVariant.mirrored].
   /// When false the content is shown statically.
   final bool enablePan;
 
-  /// Whether pinch-to-zoom is enabled.
-  final bool enableScale;
+  /// Whether pinch-to-zoom is enabled. Defaults to false for
+  /// [BracketVariant.linear] and true for [BracketVariant.mirrored], where
+  /// zooming into a fitted bracket is the primary way to read small cards.
+  final bool? enableScale;
 
   /// Minimum zoom when [enableScale] is true.
+  ///
+  /// Ignored by [BracketVariant.mirrored], which can't be zoomed out past the
+  /// scale that fits the whole bracket in the viewport.
   final double minScale;
 
   /// Maximum zoom when [enableScale] is true.
@@ -102,7 +130,7 @@ class TournamentBracket extends StatefulWidget {
 }
 
 class _TournamentBracketState extends State<TournamentBracket>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late ScrollController _scrollController;
   TabController? _tabController;
 
@@ -111,6 +139,12 @@ class _TournamentBracketState extends State<TournamentBracket>
 
   /// Column width including the connector.
   double get _columnStride => widget.cardWidth + widget.connectorWidth;
+
+  bool get _isMirrored => widget.variant == BracketVariant.mirrored;
+
+  /// Zoom defaults to on for the mirrored variant, which is fitted to the
+  /// viewport and therefore often too small to read without zooming.
+  bool get _scaleEnabled => widget.enableScale ?? _isMirrored;
 
   @override
   void initState() {
@@ -121,16 +155,22 @@ class _TournamentBracketState extends State<TournamentBracket>
   @override
   void didUpdateWidget(covariant TournamentBracket oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.rounds.length != widget.rounds.length) {
-      _disposeControllers();
-      _initControllers();
+    if (oldWidget.rounds.length != widget.rounds.length ||
+        oldWidget.variant != widget.variant ||
+        oldWidget.showRoundTabs != widget.showRoundTabs) {
+      _disposeTabController();
+      _initTabController();
     }
   }
 
   void _initControllers() {
     _scrollController = ScrollController()..addListener(_onScroll);
+    _initTabController();
+  }
 
-    if (widget.showRoundTabs && widget.rounds.isNotEmpty) {
+  void _initTabController() {
+    _tabDrivenScroll = false;
+    if (widget.showRoundTabs && widget.rounds.isNotEmpty && !_isMirrored) {
       _tabController = TabController(length: widget.rounds.length, vsync: this)
         ..addListener(_onTabChanged);
     } else {
@@ -141,6 +181,10 @@ class _TournamentBracketState extends State<TournamentBracket>
   void _disposeControllers() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _disposeTabController();
+  }
+
+  void _disposeTabController() {
     _tabController?.removeListener(_onTabChanged);
     _tabController?.dispose();
     _tabController = null;
@@ -212,6 +256,24 @@ class _TournamentBracketState extends State<TournamentBracket>
     }
 
     final lineColor = widget.lineColor ?? Theme.of(context).dividerColor;
+
+    if (_isMirrored) {
+      return MirroredBracketBody(
+        rounds: widget.rounds,
+        matchBuilder: _resolvedMatchBuilder,
+        cardHeight: widget.cardHeight,
+        cardWidth: widget.cardWidth,
+        itemsMarginVertical: widget.itemsMarginVertical,
+        connectorWidth: widget.connectorWidth,
+        lineColor: lineColor,
+        lineWidth: widget.lineWidth,
+        enablePan: widget.enablePan,
+        enableScale: _scaleEnabled,
+        minScale: widget.minScale,
+        maxScale: widget.maxScale,
+      );
+    }
+
     final firstRoundCount = widget.rounds.first.matches.length;
     final bracketHeight = calculateBracketHeight(
       firstRoundMatchCount: firstRoundCount,
@@ -281,7 +343,7 @@ class _TournamentBracketState extends State<TournamentBracket>
     );
 
     // Wrap in scale support when requested.
-    final scrollable = widget.enableScale
+    final scrollable = _scaleEnabled
         ? InteractiveViewer(
             constrained: false,
             scaleEnabled: true,
