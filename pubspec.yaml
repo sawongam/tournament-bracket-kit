@@ -1,8 +1,9 @@
 name: tournament_bracket_kit
 description: >
   A customizable Flutter widget for rendering single-elimination tournament
-  brackets with pan/zoom, round tabs, and fully customizable match cards.
-version: 0.1.0
+  brackets - classic left-to-right or mirrored with the final in the center -
+  with pan/zoom, round tabs, and fully customizable match cards.
+version: 1.0.0
 homepage: https://github.com/sawongam/tournament_bracket_kit
 repository: https://github.com/sawongam/tournament_bracket_kit
 issue_tracker: https://github.com/sawongam/tournament_bracket_kit/issues
