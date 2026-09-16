@@ -30,22 +30,42 @@ class BracketDemoPage extends StatefulWidget {
 }
 
 class _BracketDemoPageState extends State<BracketDemoPage> {
+  BracketVariant _variant = BracketVariant.linear;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('tournament_bracket_kit'),
+        actions: [
+          PopupMenuButton<BracketVariant>(
+            initialValue: _variant,
+            tooltip: 'Bracket layout',
+            icon: const Icon(Icons.account_tree_outlined),
+            onSelected: (value) => setState(() => _variant = value),
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: BracketVariant.linear,
+                child: Text('Linear (left to right)'),
+              ),
+              PopupMenuItem(
+                value: BracketVariant.mirrored,
+                child: Text('Mirrored (final in center)'),
+              ),
+            ],
+          ),
+        ],
       ),
       body: SafeArea(
         child: TournamentBracket(
           rounds: dummyBracketRounds(),
+          variant: _variant,
           onMatchTap: (match) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
                   '${match.home?.name ?? 'TBD'} vs ${match.away?.name ?? 'TBD'}',
                 ),
-                // duration: const Duration(seconds: 1),
               ),
             );
           },
