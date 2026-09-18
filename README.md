@@ -1,6 +1,6 @@
 # Tournament Bracket Kit
 
-![Pub](https://img.shields.io/badge/Pub-1.0.1-blue.svg)
+![Pub](https://img.shields.io/badge/Pub-1.0.2-blue.svg)
 ![Publisher](https://img.shields.io/badge/Publisher-sawongam-blue.svg)
 
 A customizable Flutter widget for **single-elimination tournament brackets** with pan/zoom, round tabs, and fully customizable match cards.
@@ -184,7 +184,7 @@ Map your API models into these types - the package stays UI-only.
 | **enableScale** *(optional)* | `bool?` | `false` linear / `true` mirrored | Whether pinch-to-zoom is enabled |
 | **minScale** *(optional)* | `double` | `0.4` | Minimum zoom level when `enableScale` is true |
 | **maxScale** *(optional)* | `double` | `2.5` | Maximum zoom level when `enableScale` is true |
-| **transformationController** *(optional)* | `TransformationController?` | `null` | Optional external transformation controller |
+| **transformationController** *(optional)* | `TransformationController?` | `null` | Unused, kept for API compatibility. Use `enablePan` to control scrolling |
 
 
 ## BracketMatch model
