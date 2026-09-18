@@ -1,3 +1,7 @@
+## 1.0.2
+
+* Fixed repository URLs for pub.dev verification.
+
 ## 1.0.1
 
 * Documentation cleanup in `README.md` and `CHANGELOG.md`.
